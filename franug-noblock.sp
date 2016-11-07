@@ -6,7 +6,7 @@
 
 #pragma semicolon 1
 
-#define VERSION "v1.0"
+#define VERSION "v1.1"
 
 
 new Handle:sm_noblock_cts;
@@ -20,7 +20,7 @@ new bool:g_IsNoBlock[MAXPLAYERS+1] = {false, ...};
 new bool:g_IsNoBlock2[MAXPLAYERS+1] = {false, ...};
 
 new Veces[MAXPLAYERS+1] = 0;
-
+Handle timers[MAXPLAYERS + 1];
 
 
 public Plugin:myinfo = 
@@ -58,7 +58,7 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 	new Ts, CTs;
 	for(new i=1; i <= MaxClients; i++)
 	{
-		if ( (IsValidClient(i)) && (IsPlayerAlive(i)) )
+		if (IsClientInGame(i) && IsPlayerAlive(i))
 		{
 			if (GetClientTeam(i) == CS_TEAM_T)
 				Ts++;
@@ -71,7 +71,7 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 	{
 		for (new i = 1; i < GetMaxClients(); i++)
 		{
-			if ((IsValidClient(i)) && (IsPlayerAlive(i)))
+			if (IsClientInGame(i) && IsPlayerAlive(i))
 			{
 				SetEntProp(i, Prop_Data, "m_CollisionGroup", 2);
 				PrintToChat(i, " \x04[NoBlock]\x01 You have %i seconds of NoBlock", GetConVarInt(noblock2time));
@@ -86,27 +86,27 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 
 public Action:DesactivadoNB(Handle:timer)
 {
- for (new client = 1; client < GetMaxClients(); client++)
- {
-   if (IsValidClient(client) && IsPlayerAlive(client) && GetClientTeam(client) != 1)
-   {
-     if (g_IsNoBlock[client])
-     {
-         SetEntProp(client, Prop_Data, "m_CollisionGroup", 5);
-         PrintToChat(client, " \x04[NoBlock]\x01 Now you dont have NoBlock");
-         g_IsNoBlock[client] = false;
+	for (new client = 1; client < GetMaxClients(); client++)
+	{
+		if (IsClientInGame(client) && IsPlayerAlive(client))
+		{
+			if (g_IsNoBlock[client])
+			{
+				SetEntProp(client, Prop_Data, "m_CollisionGroup", 5);
+				PrintToChat(client, " \x04[NoBlock]\x01 Now you dont have NoBlock");
+				g_IsNoBlock[client] = false;
 
-         Veces[client] = GetConVarInt(noblock2time);
-         CreateTimer(1.0, Repetidor, client, TIMER_REPEAT);
-         g_IsNoBlock2[client] = true;
-     }
-   }
- }
+				Veces[client] = GetConVarInt(noblock2time);
+				CreateTimer(1.0, Repetidor, client, TIMER_REPEAT);
+				g_IsNoBlock2[client] = true;
+			}
+		}
+	}
 }
 
 public Action:DesactivadoNB2(Handle:timer, any:client)
 {
-   if (IsValidClient(client) && IsPlayerAlive(client) && GetClientTeam(client) != 1)
+   if (IsClientInGame(client) && IsPlayerAlive(client))
    {
      if (g_IsNoBlock2[client])
      {
@@ -120,7 +120,7 @@ public Action:DesactivadoNB2(Handle:timer, any:client)
 
 public Action:DONoBlock(client,args)
 {
-   if (IsValidClient(client) && IsPlayerAlive(client) && GetClientTeam(client) > 1 && !g_IsNoBlock[client])
+   if (IsClientInGame(client) && IsPlayerAlive(client) && !g_IsNoBlock[client])
    {
          //SetEntData(client, g_offsCollisionGroup, 2, 4, true);
          PrintToChat(client, " \x04[NoBlock]\x01 You have %i seconds of NoBlock", GetConVarInt(noblock2time));
@@ -135,27 +135,11 @@ public Action:DONoBlock(client,args)
 
 public Action:PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 {
-  new client = GetClientOfUserId(GetEventInt(event, "userid"));
+	new client = GetClientOfUserId(GetEventInt(event, "userid"));
 
-  if (IsValidClient(client) && GetClientTeam(client) > 1 && IsPlayerAlive(client))
-  {
-    if (g_IsNoBlock[client])
-    {
-      g_IsNoBlock[client] = false;
-    }
-    if (g_IsNoBlock2[client])
-    {
-      g_IsNoBlock2[client] = false;
-    }
-  }
-}
-
-public IsValidClient( client ) 
-{ 
-    if ( !( 1 <= client <= MaxClients ) || !IsClientInGame(client) ) 
-        return false; 
-     
-    return true; 
+	g_IsNoBlock[client] = false;
+	g_IsNoBlock2[client] = false;
+	OnClientDisconnect(client);
 }
 
 public OnClientPutInServer(client)
@@ -201,15 +185,20 @@ public Touch(ent1, ent2)
 	if(ent2 > MaxClients || ent2 == 0)
 		return;
 
-        if(g_IsNoBlock2[ent1])
-        {
-           Veces[ent1] = GetConVarInt(noblock2time);
-	   g_ShouldCollide[ent1] = false;
-	   g_ShouldCollide[ent2] = false;
-        }
+	if(g_IsNoBlock2[ent1])
+	{
+		Veces[ent1] = GetConVarInt(noblock2time);
+		g_ShouldCollide[ent1] = false;
+		g_ShouldCollide[ent2] = false;
+	}
 }
 
-
+public OnClientDisconnect(client)
+{
+	if (timers[client] != INVALID_HANDLE)KillTimer(timers[client]);
+	
+	timers[client] = INVALID_HANDLE;
+}
 
 public EndTouch(ent1, ent2)
 {
@@ -223,43 +212,45 @@ public EndTouch(ent1, ent2)
 
 	if(!g_ShouldCollide[ent1])
 	{
-            CreateTimer(3.0, TurnOnCollision, ent1);
+		if (timers[ent1] != INVALID_HANDLE)KillTimer(timers[ent1]);
+		timers[ent1] = CreateTimer(3.0, TurnOnCollision, ent1);
 	}
 
 	if(!g_ShouldCollide[ent2])
 	{
-            CreateTimer(3.0, TurnOnCollision, ent2);
+		if (timers[ent2] != INVALID_HANDLE)KillTimer(timers[ent2]);
+		timers[ent2] = CreateTimer(3.0, TurnOnCollision, ent2);
 	}
 } 
 
 public Action:TurnOnCollision(Handle:timer, any:client)
 {
-    if (IsClientInGame(client) && IsPlayerAlive(client) && !g_ShouldCollide[client])
-        g_ShouldCollide[client] = true;
-        
-    return Plugin_Handled;
+	timers[client] = INVALID_HANDLE;
+	if (IsClientInGame(client) && IsPlayerAlive(client) && !g_ShouldCollide[client])
+		g_ShouldCollide[client] = true;
+
 } 
 
 public Action:Repetidor(Handle:timer, any:client)
 {
-        if (!IsValidClient(client) || GetClientTeam(client) == 1 || !IsPlayerAlive(client))
-        {
-		return Plugin_Stop;
-        }
-
-        if (Veces[client] == 0)
+	if (!IsClientInGame(client) || !IsPlayerAlive(client))
 	{
-                g_IsNoBlock2[client] = false;
-                PrintToChat(client, " \x04[NoBlock]\x01 Now you dont have NoBlock");
 		return Plugin_Stop;
 	}
 
-        else if(!g_IsNoBlock2[client])
-        {
-	        return Plugin_Stop;
-        }
+	if (Veces[client] == 0)
+	{
+		g_IsNoBlock2[client] = false;
+		PrintToChat(client, " \x04[NoBlock]\x01 Now you dont have NoBlock");
+		return Plugin_Stop;
+	}
 
-        Veces[client] -= 1;
+	else if(!g_IsNoBlock2[client])
+	{
+		return Plugin_Stop;
+	}
+
+	Veces[client] -= 1;
 
 	return Plugin_Continue;
 }
