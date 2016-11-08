@@ -60,16 +60,16 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 	{
 		if (IsClientInGame(i) && IsPlayerAlive(i))
 		{
-			if (GetClientTeam(i) == CS_TEAM_T)
-				Ts++;
-			else if (GetClientTeam(i) == CS_TEAM_CT)
-				CTs++;
+			switch(GetClientTeam(i)) {				
+				case CS_TEAM_T: Ts++;				
+				case CS_TEAM_CT: CTs++;			
 			}
 		}
+	}
 
 	if ((Ts > GetConVarInt(sm_noblock_ts)) && (CTs > GetConVarInt(sm_noblock_cts)))
 	{
-		for (new i = 1; i < GetMaxClients(); i++)
+		for (new i = 1; i < MaxClients; i++)
 		{
 			if (IsClientInGame(i) && IsPlayerAlive(i))
 			{
@@ -86,7 +86,7 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 
 public Action:DesactivadoNB(Handle:timer)
 {
-	for (new client = 1; client < GetMaxClients(); client++)
+	for (new client = 1; client < MaxClients; client++)
 	{
 		if (IsClientInGame(client) && IsPlayerAlive(client))
 		{
@@ -159,17 +159,7 @@ public bool:ShouldCollide(entity, collisiongroup, contentsmask, bool:result)
 		
 	if (contentsmask == 33636363)
 	{
-		
-		if(!g_ShouldCollide[entity])
-		{
-			result = false;
-			return false;
-		}
-		else
-		{
-			result = true;
-			return true;
-		}
+		return g_ShouldCollide[entity];
 	}
 	
 	return true;
