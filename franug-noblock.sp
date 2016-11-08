@@ -69,7 +69,7 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 
 	if ((Ts > GetConVarInt(sm_noblock_ts)) && (CTs > GetConVarInt(sm_noblock_cts)))
 	{
-		for (new i = 1; i < MaxClients; i++)
+		for (new i = 1; i <= MaxClients; i++)
 		{
 			if (IsClientInGame(i) && IsPlayerAlive(i))
 			{
@@ -86,7 +86,7 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 
 public Action:DesactivadoNB(Handle:timer)
 {
-	for (new client = 1; client < MaxClients; client++)
+	for (new client = 1; client <= MaxClients; client++)
 	{
 		if (IsClientInGame(client) && IsPlayerAlive(client))
 		{
