@@ -23,7 +23,7 @@
 
 #pragma semicolon 1
 
-#define VERSION "v1.1"
+#define VERSION "1.2"
 
 
 new Handle:sm_noblock_cts;
@@ -39,6 +39,7 @@ new bool:g_IsNoBlock2[MAXPLAYERS+1] = {false, ...};
 new Veces[MAXPLAYERS+1] = 0;
 Handle timers[MAXPLAYERS + 1];
 
+new Handle:g_timer = INVALID_HANDLE;
 
 public Plugin:myinfo = 
 {
@@ -52,7 +53,7 @@ public Plugin:myinfo =
 public OnPluginStart()
 {
 
-	HookEvent("round_start", Event_RoundStart, EventHookMode_Post);
+	HookEvent("round_freeze_end", Event_RoundStart, EventHookMode_Post);
 
 	HookEvent("player_spawn", PlayerSpawn);
 
@@ -61,7 +62,7 @@ public OnPluginStart()
 	sm_noblock_cts = CreateConVar("sm_noblock_cts", "1", "CT max for noblock in round start");
 	sm_noblock_ts = CreateConVar("sm_noblock_ts", "1", "Ts max for noblock in round start");
 
-	sm_noblock_time = CreateConVar("sm_noblock_time", "6", "Secods of first noblock (low value because can cause Mayhem bug).");
+	sm_noblock_time = CreateConVar("sm_noblock_time", "6.0", "Secods of first noblock (low value because can cause Mayhem bug).");
 
 	noblock2time = CreateConVar("sm_noblock2_time", "10.0", "Seconds of secondary noblock");
 
@@ -84,25 +85,28 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 		}
 	}
 
-	if ((Ts > GetConVarInt(sm_noblock_ts)) && (CTs > GetConVarInt(sm_noblock_cts)))
+	if (Ts > GetConVarInt(sm_noblock_ts) && CTs > GetConVarInt(sm_noblock_cts))
 	{
 		for (new i = 1; i <= MaxClients; i++)
 		{
 			if (IsClientInGame(i) && IsPlayerAlive(i))
 			{
 				SetEntProp(i, Prop_Data, "m_CollisionGroup", 2);
-				PrintToChat(i, " \x04[NoBlock]\x01 You have %i seconds of NoBlock", GetConVarInt(noblock2time));
+				PrintToChat(i, " \x04[NoBlock]\x01 You have %i seconds of primary NoBlock", GetConVarInt(sm_noblock_time));
                                     
 				g_IsNoBlock[i] = true;
                                     
 			}
 		}
-		CreateTimer(GetConVarInt(sm_noblock_time) * 1.0, DesactivadoNB);
+		if (g_timer != INVALID_HANDLE)KillTimer(g_timer);
+		
+		g_timer = CreateTimer(GetConVarFloat(sm_noblock_time), DesactivadoNB);
 	}
 }
 
 public Action:DesactivadoNB(Handle:timer)
 {
+	g_timer = INVALID_HANDLE;
 	for (new client = 1; client <= MaxClients; client++)
 	{
 		if (IsClientInGame(client) && IsPlayerAlive(client))
@@ -110,7 +114,7 @@ public Action:DesactivadoNB(Handle:timer)
 			if (g_IsNoBlock[client])
 			{
 				SetEntProp(client, Prop_Data, "m_CollisionGroup", 5);
-				PrintToChat(client, " \x04[NoBlock]\x01 Now you dont have NoBlock");
+				PrintToChat(client, " \x04[NoBlock]\x01 Now you have %i seconds of secondary NoBlock", GetConVarInt(noblock2time));
 				g_IsNoBlock[client] = false;
 
 				Veces[client] = GetConVarInt(noblock2time);
